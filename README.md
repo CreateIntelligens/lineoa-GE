@@ -31,13 +31,12 @@ ChannelAccessToken=your_line_channel_access_token
 PORT=8902
 
 # Open Notebook API Configuration
-NOTEBOOK_API_URL=https://10.9.0.32:8900
-NOTEBOOK_ID=notebook:47rayc7fhfiower8b918  # Optional: leave empty to auto-create per user
+NOTEBOOK_API_URL=https://your-notebook-api-host:8900
+NOTEBOOK_ID=notebook:your_notebook_id  # Optional: leave empty to auto-create per user
 
 # LLM Model (可用模型見: GET /api/models)
-MODEL_ID=model:xz7e0uojk5itlx5ptt8j  # Groq 模型
-# MODEL_ID=model:945zw4rdn473yoda5w48  # gemini-2.0-flash
-# MODEL_ID=model:lcsi1redz2xrilfq5dg0  # gpt-4o-mini
+MODEL_ID=model:your_model_id  # 自訂模型 ID
+# MODEL_ID=  # 留空使用預設模型
 
 # Container User Mapping (optional)
 HOST_UID=1000
@@ -57,9 +56,9 @@ docker-compose up -d
 https://your-domain.com/callback
 ```
 
-本專案使用 **Cloudflare Workers** 作為 SSL 終端：
+例如使用 **Cloudflare Workers** 作為 SSL 終端：
 ```
-https://cs01-line.ai360.workers.dev/callback
+https://your-cloudflare-worker.workers.dev/callback
 ```
 
 ## 📋 架構說明
@@ -121,14 +120,14 @@ LINE 用戶發送訊息："化妝品出口日本需要什麼文件？"
 {
   "text": "化妝品出口日本需要什麼文件？",
   "conversation_id": "external_test_001",
-  "notebook_id": "notebook:47rayc7fhfiower8b918"
+  "notebook_id": "notebook:your_notebook_id"
 }
 ```
 
 **回應格式：**
 ```json
 {
-  "session_id": "chat_session:p5cvk8vtdk594fk7a4mq",
+  "session_id": "chat_session:xxxxxxxxxxxxx",
   "messages": [
     {
       "id": "uuid",
@@ -148,12 +147,12 @@ LINE 用戶發送訊息："化妝品出口日本需要什麼文件？"
 
 **測試範例：**
 ```bash
-curl -X POST https://cs01-line.ai360.workers.dev/api/chat \
+curl -X POST https://your-domain.com/api/chat \
   -H "Content-Type: application/json" \
   -d '{
     "text": "你好，請簡單回答：1+1等於多少？",
     "conversation_id": "test_user_001",
-    "notebook_id": "notebook:47rayc7fhfiower8b918"
+    "notebook_id": "notebook:your_notebook_id"
   }'
 ```
 
@@ -196,7 +195,7 @@ curl -X POST https://cs01-line.ai360.workers.dev/api/chat \
 
 查詢可用模型：
 ```bash
-curl -k https://10.9.0.32:8900/api/models
+curl -k https://your-notebook-api-host:8900/api/models
 ```
 
 ## 📌 注意事項
