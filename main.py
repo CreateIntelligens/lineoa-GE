@@ -30,6 +30,8 @@ CHANNEL_ACCESS_TOKEN = os.getenv("ChannelAccessToken")
 NOTEBOOK_API_URL = os.getenv("NOTEBOOK_API_URL", "https://localhost:8900")
 NOTEBOOK_ID = os.getenv("NOTEBOOK_ID", "")
 MODEL_ID = os.getenv("MODEL_ID", "")  # LLM model override
+PROMPT_ID = os.getenv("PROMPT_ID", "")  # 虛擬人客服 (外部 API)
+PROMPT_ID_LINE = os.getenv("PROMPT_ID_LINE", "")  # LINE 客服
 
 # 驗證必要環境變數
 if not CHANNEL_SECRET:
@@ -56,8 +58,11 @@ async_http_client = AiohttpAsyncHttpClient(session)
 line_bot_api = AsyncLineBotApi(CHANNEL_ACCESS_TOKEN, async_http_client)
 parser = WebhookParser(CHANNEL_SECRET)
 
-# Notebook API 客戶端
-notebook_client = NotebookClient(NOTEBOOK_API_URL, NOTEBOOK_ID, MODEL_ID)
+# Notebook API 客戶端 (LINE Bot 專用)
+notebook_client_line = NotebookClient(NOTEBOOK_API_URL, NOTEBOOK_ID, MODEL_ID, PROMPT_ID_LINE)
+
+# Notebook API 客戶端 (外部 API 專用)
+notebook_client_virtual = NotebookClient(NOTEBOOK_API_URL, NOTEBOOK_ID, MODEL_ID, PROMPT_ID)
 
 # =============================================================================
 # 路由端點
@@ -85,7 +90,7 @@ async def callback(request: Request) -> str:
     # 處理事件
     for event in events:
         if isinstance(event, MessageEvent) and event.message.type == "text":
-            await handle_text_message(event, line_bot_api, notebook_client, NOTEBOOK_ID)
+            await handle_text_message(event, line_bot_api, notebook_client_line, NOTEBOOK_ID)
 
     return "OK"
 
@@ -126,17 +131,33 @@ async def chat(data: dict):
     - text: 訊息內容
     - conversation_id: 對話 ID
     - notebook_id: Notebook ID
+    - prompt_id: (可選) System prompt ID，不帶則使用預設的虛擬人客服 prompt
+
+    範例:
+    1. 使用預設 prompt (虛擬人客服):
+       {"text": "...", "conversation_id": "...", "notebook_id": "..."}
+
+    2. 自訂 prompt:
+       {"text": "...", "conversation_id": "...", "notebook_id": "...", "prompt_id": "system_prompt:xxx"}
     """
     text = data.get("text")
     conversation_id = data.get("conversation_id")
     notebook_id = data.get("notebook_id")
+    custom_prompt_id = data.get("prompt_id")  # 可選的自訂 prompt_id
 
     if not text or not conversation_id or not notebook_id:
         return {
             "error": "Missing required fields: text, conversation_id, notebook_id"
         }
 
-    result = await notebook_client.chat(conversation_id, notebook_id, text)
+    # 如果有自訂 prompt_id，使用臨時的 client
+    if custom_prompt_id:
+        temp_client = NotebookClient(NOTEBOOK_API_URL, notebook_id, MODEL_ID, custom_prompt_id)
+        result = await temp_client.chat(conversation_id, notebook_id, text)
+    else:
+        # 否則使用預設的虛擬人客服 prompt
+        result = await notebook_client_virtual.chat(conversation_id, notebook_id, text)
+
     return result
 
 # =============================================================================
@@ -152,6 +173,9 @@ if __name__ == "__main__":
     print(f"🚀 Server Port: {PORT}")
     print(f"📓 Notebook API: {NOTEBOOK_API_URL}")
     print(f"📚 Notebook ID: {NOTEBOOK_ID or '(auto-create per user)'}")
+    print(f"🤖 Model ID: {MODEL_ID or '(default)'}")
+    print(f"📝 LINE Prompt: {PROMPT_ID_LINE or '(none)'}")
+    print(f"📝 Virtual Prompt: {PROMPT_ID or '(none)'}")
     print("=" * 80)
 
     uvicorn.run(app, host="0.0.0.0", port=PORT)

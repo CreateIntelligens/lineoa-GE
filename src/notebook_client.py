@@ -10,7 +10,7 @@ from typing import Dict, Optional
 class NotebookClient:
     """Open Notebook API 客戶端"""
 
-    def __init__(self, base_url: str, default_notebook_id: str = "", model_id: str = ""):
+    def __init__(self, base_url: str, default_notebook_id: str = "", model_id: str = "", prompt_id: str = ""):
         """
         初始化客戶端
 
@@ -18,10 +18,12 @@ class NotebookClient:
             base_url: Open Notebook API 的基礎 URL
             default_notebook_id: 預設的 notebook ID（可選）
             model_id: LLM model ID（可選）
+            prompt_id: System prompt ID（可選）
         """
         self.base_url = base_url
         self.default_notebook_id = default_notebook_id
         self.model_id = model_id
+        self.prompt_id = prompt_id
         self.user_sessions: Dict[str, str] = {}  # 快取：conversation_id -> session_id
 
     async def get_or_create_session(self, user_id: str) -> str:
@@ -174,7 +176,7 @@ class NotebookClient:
                 context = context_data.get("context", {"sources": [], "notes": []})
                 print(f"📚 Context 查詢完成: {len(context.get('sources', []))} sources, {len(context.get('notes', []))} notes")
 
-                # 發送訊息到 session (帶入 context 和 model_override)
+                # 發送訊息到 session (帶入 context、model_override 和 prompt_id)
                 payload = {
                     "session_id": session_id,
                     "message": message,
@@ -185,6 +187,11 @@ class NotebookClient:
                 if self.model_id:
                     payload["model_override"] = self.model_id
                     print(f"🤖 使用自訂 model: {self.model_id}")
+
+                # 如果有設定 prompt_id，加入 prompt_id
+                if self.prompt_id:
+                    payload["prompt_id"] = self.prompt_id
+                    print(f"📝 使用 system prompt: {self.prompt_id}")
 
                 response = await client.post(
                     f"{self.base_url}/api/chat/execute",

@@ -8,9 +8,11 @@
 - ✅ 自動為每個用戶管理 Notebook session
 - ✅ 自動查詢 notebook context (sources + notes)
 - ✅ 支援自訂 LLM 模型 (model_override)
+- ✅ 支援多場景 System Prompt 切換（LINE Bot / 外部 API / 自訂）
 - ✅ 對話記錄永久保存至 Notebook
 - ✅ AI 回覆即時返回給 LINE 用戶
 - ✅ RESTful API 端點供外部調用
+- ✅ FastAPI 自動生成 API 文件 (/docs)
 
 ## 🚀 快速開始
 
@@ -37,6 +39,10 @@ NOTEBOOK_ID=notebook:your_notebook_id  # Optional: leave empty to auto-create pe
 # LLM Model (可用模型見: GET /api/models)
 MODEL_ID=model:your_model_id  # 自訂模型 ID
 # MODEL_ID=  # 留空使用預設模型
+
+# System Prompts (Optional)
+PROMPT_ID=system_prompt:xxx  # 虛擬人客服 (外部 API 使用)
+PROMPT_ID_LINE=system_prompt:xxx     # LINE 客服 (LINE Bot 使用)
 
 # Container User Mapping (optional)
 HOST_UID=1000
@@ -86,7 +92,8 @@ LINE 用戶發送訊息："化妝品出口日本需要什麼文件？"
                       ├─ session_id
                       ├─ message
                       ├─ context (sources + notes)
-                      └─ model_override (若有設定 MODEL_ID)
+                      ├─ model_override (若有設定 MODEL_ID)
+                      └─ prompt_id (若有設定 PROMPT_ID)
           ↓
     Notebook API (Port 8900)
           ├─ 使用指定的 LLM 模型處理訊息
@@ -110,6 +117,7 @@ LINE 用戶發送訊息："化妝品出口日本需要什麼文件？"
 - `POST /callback` - LINE Webhook（處理 LINE 訊息事件）
 - `GET /health` - 健康檢查
 - `GET /` - 服務資訊
+- `GET /docs` - FastAPI 自動生成的 API 文件（Swagger UI）
 
 ### Chat API
 
@@ -120,9 +128,18 @@ LINE 用戶發送訊息："化妝品出口日本需要什麼文件？"
 {
   "text": "化妝品出口日本需要什麼文件？",
   "conversation_id": "external_test_001",
-  "notebook_id": "notebook:your_notebook_id"
+  "notebook_id": "notebook:your_notebook_id",
+  "prompt_id": "system_prompt:xxx"
 }
 ```
+
+**參數說明：**
+- `text` *（必填）*：訊息內容
+- `conversation_id` *（必填）*：對話 ID，用於識別用戶
+- `notebook_id` *（必填）*：Notebook ID
+- `prompt_id` *（可選）*：自訂 System Prompt ID
+  - 若不提供，使用預設的虛擬人客服 prompt（`PROMPT_ID`）
+  - 若提供，使用指定的 prompt
 
 **回應格式：**
 ```json
@@ -146,6 +163,8 @@ LINE 用戶發送訊息："化妝品出口日本需要什麼文件？"
 ```
 
 **測試範例：**
+
+1. 使用預設 prompt（虛擬人客服）：
 ```bash
 curl -X POST https://your-domain.com/api/chat \
   -H "Content-Type: application/json" \
@@ -153,6 +172,18 @@ curl -X POST https://your-domain.com/api/chat \
     "text": "你好，請簡單回答：1+1等於多少？",
     "conversation_id": "test_user_001",
     "notebook_id": "notebook:your_notebook_id"
+  }'
+```
+
+2. 使用自訂 prompt：
+```bash
+curl -X POST https://your-domain.com/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "你好，請簡單回答：1+1等於多少？",
+    "conversation_id": "test_user_001",
+    "notebook_id": "notebook:your_notebook_id",
+    "prompt_id": "system_prompt:your_custom_prompt_id"
   }'
 ```
 
@@ -196,6 +227,28 @@ curl -X POST https://your-domain.com/api/chat \
 查詢可用模型：
 ```bash
 curl -k https://your-notebook-api-host:8900/api/models
+```
+
+### 4. System Prompt 管理
+
+本專案支援針對不同使用場景設定不同的 System Prompt：
+
+**預設配置：**
+- `PROMPT_ID`：外部 API 使用的預設 prompt（虛擬人客服）
+- `PROMPT_ID_LINE`：LINE Bot 專用 prompt（LINE 客服）
+
+**使用方式：**
+1. **LINE Bot**：自動使用 `PROMPT_ID_LINE`
+2. **外部 API 不帶 prompt_id**：使用 `PROMPT_ID`（預設虛擬人客服）
+3. **外部 API 帶 prompt_id**：使用指定的 prompt
+
+**範例：**
+```bash
+# 使用預設 prompt
+curl -X POST https://your-domain.com/api/chat -d '{"text":"...","conversation_id":"...","notebook_id":"..."}'
+
+# 使用自訂 prompt
+curl -X POST https://your-domain.com/api/chat -d '{"text":"...","conversation_id":"...","notebook_id":"...","prompt_id":"system_prompt:xxx"}'
 ```
 
 ## 📌 注意事項
